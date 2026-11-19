@@ -26,7 +26,7 @@ cp .env.example .env     # preencha com a URL e a chave publicável do Supabase
 npm run dev              # servidor local
 npm run lint             # ESLint
 npm run build            # build de produção
-npm test                 # testes das regras de negócio (a partir do Marco 2)
+npm test                 # testes das regras de negócio e do banco (Postgres em memória)
 ```
 
 ## Variáveis de ambiente
@@ -55,6 +55,20 @@ O `.env` fica fora do Git. Só o `.env.example` (sem valores) é versionado.
 - Mensagens de erro em português, claras e iguais às dos critérios de aceitação do `SPEC.md`.
 - Layout pensado primeiro para celular (mobile-first) com as classes do Tailwind.
 - Mudanças no banco ficam em arquivos SQL versionados em `supabase/` (por exemplo `supabase/schema.sql`).
+
+## Estrutura do código
+
+```
+src/domain/      regras puras (RN01 a RN03, saldo, busca). Sem React, sem Supabase.
+src/services/    única camada que fala com o Supabase; erros traduzidos em services/erros.ts
+src/pages/       Inicio (lista), DetalheCliente, TelaLogin
+src/components/  formulários e peças de interface
+src/db/          testes do supabase/schema.sql com PGlite
+supabase/        schema.sql (tabelas, gatilhos das regras, RLS, visão de saldo)
+```
+
+- Regra nova: primeiro no `SPEC.md`, depois em `src/domain/` com teste, depois no `supabase/schema.sql` com teste em `src/db/`, com a **mesma mensagem** nos dois lados.
+- Dinheiro é sempre em **centavos inteiros** na tela; o banco usa `numeric` com no máximo 2 casas.
 
 ## Como trabalhar
 

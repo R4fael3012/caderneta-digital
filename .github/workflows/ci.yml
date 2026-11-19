@@ -1,0 +1,25 @@
+name: CI
+
+# Roda a cada push e a cada pull request: lint, testes e build.
+# Os testes não precisam de Supabase nem de segredos (o banco é simulado em memória).
+on:
+  push:
+  pull_request:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+        env:
+          # valores falsos: o build só precisa que existam; a chave real fica no Vercel
+          VITE_SUPABASE_URL: https://exemplo.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci

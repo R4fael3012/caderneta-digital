@@ -17,7 +17,7 @@ export function Layout({ children, nomeUsuario, aoSair }: Props) {
       </a>
 
       <header className="flex items-center justify-between gap-4 border-b border-stone-300 bg-white px-4 py-3 dark:border-stone-700 dark:bg-stone-900">
-        <div className="flex items-center gap-2 font-bold">
+        <a href="#/" className="flex items-center gap-2 font-bold no-underline">
           <span
             aria-hidden="true"
             className="grid size-8 place-items-center rounded-lg bg-emerald-700 font-extrabold text-white"
@@ -25,7 +25,7 @@ export function Layout({ children, nomeUsuario, aoSair }: Props) {
             C
           </span>
           <span>Caderneta Digital</span>
-        </div>
+        </a>
 
         {nomeUsuario && aoSair && (
           <div className="flex items-center gap-3 text-sm text-stone-600 dark:text-stone-400">

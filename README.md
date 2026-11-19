@@ -31,9 +31,27 @@ O planejamento completo (público, escopo, requisitos e critérios de aceitaçã
 
 ## Tecnologias
 
-- React + TypeScript
-- Vite
-- Vitest (testes)
+- React + TypeScript + Vite
+- Tailwind CSS
+- Supabase: Postgres, login (Auth) e API REST. Não há servidor próprio; quem protege os dados é o banco (RLS)
+- Vitest (testes) e PGlite (Postgres em memória, para testar o banco)
+- GitHub Actions (lint, testes e build a cada push)
+- Vercel (publicação)
+
+### Como o sistema é organizado
+
+```
+src/domain/     regras de negócio em funções puras (RN01 a RN03, saldo, busca, total)
+src/services/   conversa com o Supabase (clientes, lançamentos, login) e tradução de erros
+src/pages/      telas: login, lista de clientes, detalhe do cliente
+src/components/ formulários e peças de interface
+src/db/         testes do banco com Postgres em memória
+supabase/       schema.sql: tabelas, regras no banco, RLS e visão de saldo
+scripts/        ataque.mjs: tenta quebrar o sistema pela API e confere que o banco recusa
+docs/           roteiro da apresentação, checklists e revisão entre grupos
+```
+
+A regra vale **na tela e no banco**: a tela avisa cedo, mas o `supabase/schema.sql` garante mesmo que alguém ignore a tela e fale direto com a API.
 
 ## Como rodar
 
@@ -52,15 +70,22 @@ cd <NOME-DA-PASTA>
 # 2. Instalar as dependências
 npm install
 
-# 3. Configurar as variáveis de ambiente (se o projeto usar)
+# 3. Configurar as variáveis de ambiente
 cp .env.example .env
-# edite o .env com os valores do seu ambiente
+# edite o .env: URL do projeto Supabase e a chave PUBLICÁVEL (sb_publishable_...)
+# nunca use a chave secreta (sb_secret_ / service_role)
 
 # 4. Iniciar em modo de desenvolvimento
 npm run dev
 ```
 
 O terminal mostra o endereço local, normalmente `http://localhost:5173`.
+
+### Banco de dados (uma vez por projeto Supabase)
+
+1. No Supabase, abra **SQL Editor**, cole o conteúdo de [`supabase/schema.sql`](./supabase/schema.sql) e clique em **Run**. Pode rodar de novo quando o arquivo mudar: ele não apaga dados.
+2. Em **Authentication › Sign In / Providers**, deixe **Email** ligado e defina o tamanho mínimo da senha em **8**.
+3. Em **Authentication › URL Configuration**, coloque o endereço do site publicado em **Site URL** e também `http://localhost:5173` em **Redirect URLs**.
 
 ### Outros comandos
 
@@ -70,6 +95,7 @@ O terminal mostra o endereço local, normalmente `http://localhost:5173`.
 | `npm run build` | Gera a versão de produção na pasta `dist/` |
 | `npm run preview` | Serve localmente a versão de produção |
 | `npm run lint` | Verifica o código com o ESLint |
+| `npm test` | Roda os testes (regras de negócio e banco) |
 
 ## Como rodar os testes
 
@@ -79,36 +105,30 @@ npm test
 
 # Modo observação (reexecuta ao salvar)
 npm run test:watch
-
-# Com relatório de cobertura
-npm run test:coverage
 ```
 
-> Se esses scripts ainda não existem, instale o Vitest e adicione-os ao `package.json`:
->
-> ```bash
-> npm install -D vitest @vitest/coverage-v8
-> ```
->
-> ```json
-> "scripts": {
->   "test": "vitest run",
->   "test:watch": "vitest",
->   "test:coverage": "vitest run --coverage"
-> }
-> ```
+Não precisam de internet, de Supabase nem de chaves: o banco é simulado com o PGlite (Postgres de verdade, em memória) e o `supabase/schema.sql` é executado nele.
 
 ### O que os testes cobrem
 
-As regras de negócio ficam em funções isoladas da interface, então os testes rodam sem abrir o navegador.
+| Arquivo | O que testa |
+|---|---|
+| `src/domain/regras.test.ts` | RN01 a RN03 na tela, edição e exclusão de lançamentos, cadastro de cliente, busca, filtro, total a receber |
+| `src/domain/dinheiro.test.ts` | leitura do valor digitado (vírgula, ponto, centavos sem erro de ponto flutuante) e formatação em reais |
+| `src/domain/data.test.ts` | datas |
+| `src/db/schema.test.ts` | as mesmas regras **no banco**, o isolamento entre comerciantes (RN04), visitante sem login, e o próprio `schema.sql` (roda duas vezes e migra a tabela antiga) |
 
 | Regra | Casos de fronteira testados |
 |---|---|
-| RN01 | valor `0`, negativo, vazio, não numérico, `0,01` |
+| RN01 | valor `0`, negativo, vazio, não numérico, `0,01`, 3 casas decimais |
 | RN02 | pagamento igual ao saldo (aceito), saldo + `0,01` (recusado), saldo `0` (recusado) |
 | RN03 | compra que atinge exatamente o limite (aceita), limite + `0,01` (recusada), limite `0` |
-| Saldo e total | cálculo do saldo por cliente e do total a receber |
-| RN04 | um comerciante não enxerga nem altera dados de outro |
+| Edição e exclusão | excluir compra já paga em parte (recusado), editar pagamento além da dívida (recusado) |
+| RN04 | um comerciante não enxerga, altera, apaga nem lança no cliente de outro; visitante sem login não faz nada |
+
+### Ataque ao sistema no ar
+
+Os testes acima rodam em memória. Para provar que o Supabase **real** também recusa, rode o [`scripts/ataque.mjs`](./scripts/ataque.mjs) com duas contas de teste (instruções no cabeçalho do arquivo).
 
 ## Publicação (link no ar)
 
@@ -118,8 +138,24 @@ Exemplo com a Vercel:
 
 1. Suba o código para um repositório no GitHub.
 2. Em [vercel.com](https://vercel.com), escolha **Add New → Project** e importe o repositório.
-3. Configuração de build: comando `npm run build`, pasta de saída `dist`.
-4. Cadastre as variáveis de ambiente do `.env` no painel do projeto.
+3. Configuração de build: comando `npm run build`, pasta de saída `dist` (a Vercel já detecta o Vite).
+4. Em **Environment Variables**, cadastre `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` com os valores do `.env`.
 5. Clique em **Deploy** e copie o endereço gerado para o topo deste README.
+6. Volte ao Supabase (**Authentication › URL Configuration**) e coloque esse endereço em **Site URL**.
+
+As telas usam rotas com `#` (ex.: `#/cliente/123`), então não é preciso configurar redirecionamento no servidor.
 
 Antes de entregar, abra o link em uma aba anônima e confira que cadastro, login e lançamento de uma compra funcionam.
+
+## Segurança
+
+- A chave que vai para o navegador é a **publicável**, feita para ser pública. Quem protege os dados é o banco: as duas tabelas têm RLS ligado, com a política "cada comerciante só acessa as próprias linhas", e o visitante sem login não tem permissão nenhuma.
+- Nenhuma chave secreta (`sb_secret_`, `service_role`) está no código nem no histórico. O `.env` fica fora do Git (`.env.example` mostra só os nomes).
+- Texto digitado pelo usuário é sempre exibido pelo React como texto, nunca como HTML.
+
+## Documentos do projeto
+
+- [`SPEC.md`](./SPEC.md): problema, público, escopo, requisitos, regras de negócio e critérios de aceitação
+- [`AGENTS.md`](./AGENTS.md): regras para agentes de IA que trabalham neste repositório
+- [`IA.md`](./IA.md): registro do que foi pedido à IA, aceito e rejeitado
+- [`docs/`](./docs): roteiro da apresentação, checklists e revisão entre grupos

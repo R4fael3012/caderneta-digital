@@ -1,11 +1,14 @@
 import { Layout } from './components/Layout'
+import { useRota } from './hooks/useRota'
 import { useSessao } from './hooks/useSessao'
+import DetalheCliente from './pages/DetalheCliente'
 import Inicio from './pages/Inicio'
 import TelaLogin from './pages/TelaLogin'
 import { nomeDoUsuario, sair } from './services/auth'
 
 export default function App() {
   const { session, carregando } = useSessao()
+  const rota = useRota()
 
   if (carregando) {
     return (
@@ -15,7 +18,7 @@ export default function App() {
     )
   }
 
-  /* sem sessão, só a tela de acesso aparece */
+  /* sem sessão, só a tela de acesso aparece (CA03) */
   if (!session) {
     return (
       <Layout>
@@ -24,10 +27,9 @@ export default function App() {
     )
   }
 
-  const nome = nomeDoUsuario(session.user)
   return (
-    <Layout nomeUsuario={nome} aoSair={sair}>
-      <Inicio nome={nome} email={session.user.email ?? ''} />
+    <Layout nomeUsuario={nomeDoUsuario(session.user)} aoSair={sair}>
+      {rota.nome === 'cliente' ? <DetalheCliente key={rota.id} id={rota.id} /> : <Inicio />}
     </Layout>
   )
 }
